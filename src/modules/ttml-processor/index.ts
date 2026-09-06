@@ -1,14 +1,14 @@
+import {
+	TranslationOutputMode,
+	translationOutputModeAtom,
+} from "$/modules/settings/states";
+import { globalStore } from "$/states/store.ts";
 import type {
 	LyricLine as AppLyricLine,
 	LyricWord as AppLyricWord,
 	TTMLLyric as AppTTMLLyric,
 	TTMLMetadata as AppTTMLMetadata,
 } from "$/types/ttml";
-import {
-	TranslationOutputMode,
-	translationOutputModeAtom,
-} from "$/modules/settings/states";
-import { globalStore } from "$/states/store.ts";
 import type {
 	AmllLyricLine,
 	AmllLyricResult,
@@ -252,6 +252,20 @@ function postProcessLyricLines(amllResult: AmllLyricResult): AmllLyricResult {
 }
 
 /**
+ * 判断给定的歌词是否为逐行歌词
+ *
+ * 如果所有非背景人声的歌词行都只有一个音节，则判定为逐行歌词
+ */
+export function isLineTimingLyrics(
+	lyric: AmllLyricResult | AppTTMLLyric,
+): boolean {
+	const nonBgLines = lyric.lyricLines.filter((line) => !line.isBG);
+	return (
+		nonBgLines.length > 0 && nonBgLines.every((line) => line.words.length === 1)
+	);
+}
+
+/**
  * 便捷方法，将 AMLL 格式的歌词和元数据生成为 TTML 字符串
  *
  * 会对文本进行规范化，例如清理空格、移除背景人声括号等
@@ -266,10 +280,14 @@ export function amllToTTML(
 	config?: Partial<GeneratorConfig>,
 ): Result<string> {
 	const processedAmllResult = postProcessLyricLines(amllResult);
+	const lineTiming = isLineTimingLyrics(amllResult);
 	return rawAmllToTtml(
 		processedAmllResult,
 		options,
-		withDefaultGeneratorConfig(config),
+		withDefaultGeneratorConfig({
+			lineTiming,
+			...config,
+		}),
 	) as Result<string>;
 }
 
